@@ -1,0 +1,87 @@
+from machine import Pin
+import time
+
+# Configure LED pin as an output
+a = 0
+led = Pin(20, Pin.OUT)
+led_on = 0
+
+# Configure Button pin as an input with an INTERNAL PULL-DOWN resistor
+button = Pin(16, Pin.IN, Pin.PULL_DOWN)
+
+# Track the last time the LED state was changed
+last_led_toggle = time.ticks_ms()
+led_state = 0
+
+while True:
+    
+    current_time = time.ticks_ms()
+
+    # --- BUTTON & STATE LOGIC ---
+    if a == 0:  
+        if button.value() == 1:
+            
+            a = 1
+            # Reset LED timing so the new speed starts fresh
+            last_led_toggle = current_time 
+            while button.value() == 1:
+                current_time = time.ticks_ms()
+                if time.ticks_diff(current_time, last_led_toggle) >= 1000:
+            
+                    led_state = not led_state
+                    led.value(led_state)
+                    last_led_toggle = current_time
+    
+    if a == 1:
+        if button.value() == 1:
+            
+            led_on = 0
+            a = 2
+            last_led_toggle = current_time
+            while button.value() == 1:
+                current_time = time.ticks_ms()
+                if time.ticks_diff(current_time, last_led_toggle) >= 500:
+            
+                    led_state = not led_state
+                    led.value(led_state)
+                    last_led_toggle = current_time
+
+    if a == 2:
+        if button.value() == 1:
+            
+            led_on = 0
+            a = 0
+            last_led_toggle = current_time
+            while button.value() == 1:
+                current_time = time.ticks_ms()
+                if time.ticks_diff(current_time, last_led_toggle) >= 100:
+            
+                    led_state = not led_state
+                    led.value(led_state)
+                    last_led_toggle = current_time
+
+    # --- NON-BLOCKING LED BLINK LOGIC ---
+    if a == 0:
+        # 1.0 second on, 1.0 second off = toggle every 1000 ms
+        if time.ticks_diff(current_time, last_led_toggle) >= 1000:
+            
+            led_state = not led_state
+            led.value(led_state)
+            last_led_toggle = current_time
+
+    elif a == 1:
+        # 0.5 second on, 0.5 second off = toggle every 500 ms
+        if time.ticks_diff(current_time, last_led_toggle) >= 500:
+             
+            led_state = not led_state
+            led.value(led_state)
+            last_led_toggle = current_time
+
+    elif a == 2:
+        # 0.2 second on, 0.2 second off = toggle every 200 ms
+        if time.ticks_diff(current_time, last_led_toggle) >= 100:
+            
+            led_state = not led_state
+            led.value(led_state)
+            last_led_toggle = current_time
+
