@@ -1,0 +1,58 @@
+from machine import Pin, PWM, ADC
+from time import ticks_ms, ticks_diff, sleep_ms
+
+potentiometre = ADC(Pin(26))
+buzzer = PWM(Pin(15))
+buzzer.duty_u16(0)
+
+# Fréquences en hertz
+DO = 262
+RE = 294
+MI = 330
+FA = 349
+SOL = 392
+LA = 440
+
+# La melodie je l'ai laisser faire par openAI
+melodie = [
+    (DO, 400), (RE, 400), (MI, 400), (DO, 400),
+    (DO, 400), (RE, 400), (MI, 400), (DO, 400),
+    (MI, 400), (FA, 400), (SOL, 800),
+    (MI, 400), (FA, 400), (SOL, 800),
+    (SOL, 200), (LA, 200), (SOL, 200),
+    (FA, 200), (MI, 400), (DO, 400),
+    (SOL, 200), (LA, 200), (SOL, 200),
+    (FA, 200), (MI, 400), (DO, 400),
+    (DO, 400), (196, 400), (DO, 800),
+    (DO, 400), (196, 400), (DO, 800),
+]
+
+
+def jouer_note(frequence, duree):
+    buzzer.freq(frequence)
+    debut = ticks_ms()
+
+    while ticks_diff(ticks_ms(), debut) < duree:
+        valeur = potentiometre.read_u16()
+
+        # De 0 à environ 50 % de rapport cyclique.
+        # Une petite zone basse permet de couper le son.
+        volume = 0 if valeur < 1000 else valeur // 2
+        buzzer.duty_u16(volume)
+
+        # Relire le potentiomètre pendant la note.
+        sleep_ms(10)
+
+    buzzer.duty_u16(0)
+    sleep_ms(30)
+
+
+try:
+    while True:
+        for frequence, duree in melodie:
+            jouer_note(frequence, duree)
+        sleep_ms(300)
+
+finally:
+    buzzer.duty_u16(0)
+    buzzer.deinit()
