@@ -1,0 +1,95 @@
+
+
+# Value
+temperature = 0.0
+consigne = 25.0
+mode_precedent = None
+prochain_echantillon = time.ticks_ms()
+prochain_clignotement = time.ticks_ms()
+periode_demi_clignotement = 1000
+
+ecrire_ligne(0, "Ambient: --.-C")
+ecrire_ligne(1, "Set: 25.0")
+
+print("Thermostat demarre")
+print("Tourner le potentiometre pour regler 15 a 35 C")
+
+while True:
+    maintenant = time.ticks_ms()
+
+    # Convertir la lecture 0..65535 du potentiometre en consigne 15..35 C.
+    valeur_adc = potentiometre.read_u16()
+    consigne = 15.0 + (valeur_adc * 20.0 / 65535.0)
+
+    # Lecture du DHT20 et mise a jour de l'ecran environ une fois par seconde.
+    if time.ticks_diff(maintenant, prochain_echantillon) >= 0:
+        prochain_echantillon = time.ticks_add(maintenant, 1000)
+        try:
+            mesures = capteur.measurements
+            temperature = float(mesures["t"])
+
+            en_surchauffe = temperature > consigne
+            alarme = temperature > consigne + 3.0
+
+            ligne_ambiante = "Ambient: {:.1f}C".format(temperature)
+            ligne_consigne = "Set: {:.1f}".format(consigne)
+            if alarme:
+                ligne_consigne += " ALARM"
+
+            ecrire_ligne(0, ligne_ambiante)
+            ecrire_ligne(1, ligne_consigne)
+
+            print("Consigne: {:.1f} C | Ambiante: {:.1f} C".format(
+                consigne, temperature
+            ))
+
+            # Trois etats : repos, temperature au-dessus, alarme (+3 C).
+            if alarme:
+                mode = "alarme"
+                periode_demi_clignotement = 250  # 2 Hz (periode totale 0,5 s)
+            elif en_surchauffe:
+                mode = "chaud"
+                periode_demi_clignotement = 1000  # 0,5 Hz (periode totale 2 s)
+            else:
+                mode = "repos"
+
+            if mode != mode_precedent:
+                mode_precedent = mode
+                if mode == "repos":
+                    led.value(0)
+                    buzzer.duty_u16(0)
+                else:
+                    led.value(1)
+                    if mode == "alarme":
+                        buzzer.freq(2000)
+                        buzzer.duty_u16(20000)
+                    else:
+                        buzzer.duty_u16(0)
+                prochain_clignotement = time.ticks_add(
+                    maintenant, periode_demi_clignotement
+                )
+            elif mode == "repos":
+                led.value(0)
+                buzzer.duty_u16(0)
+            elif mode == "chaud":
+                buzzer.duty_u16(0)
+            else:
+                buzzer.duty_u16(20000)
+
+        except Exception as erreur:
+            # En cas de lecture invalide, couper les sorties par securite.
+            print("Erreur capteur DHT20:", erreur)
+            led.value(0)
+            buzzer.duty_u16(0)
+            mode_precedent = None
+            ecrire_ligne(0, "Erreur capteur")
+
+    # Clignotement independant de la lecture du capteur.
+    if mode_precedent in ("chaud", "alarme"):
+        if time.ticks_diff(maintenant, prochain_clignotement) >= 0:
+            led.toggle()
+            prochain_clignotement = time.ticks_add(
+                maintenant, periode_demi_clignotement
+            )
+
+    time.sleep_ms(20)  
